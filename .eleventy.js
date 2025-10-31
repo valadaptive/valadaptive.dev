@@ -33,6 +33,33 @@ const postcssConfig = {
     options: {},
 };
 
+const shikiPlugin = await (async() => {
+    const darkTheme = structuredClone((await bundledThemes['catppuccin-mocha']()).default);
+    const lightTheme = structuredClone((await bundledThemes['catppuccin-latte']()).default);
+
+    for (const tokenColors of [
+        darkTheme.tokenColors,
+        lightTheme.tokenColors,
+    ]) {
+        if (!tokenColors) continue;
+        for (const tokenSetting of tokenColors) {
+            delete tokenSetting.settings.fontStyle;
+        }
+    }
+
+    darkTheme.colors = lightTheme.colors = {
+        'editor.background': 'var(--code-background)',
+        'editor.foreground': 'var(--text-color)',
+    };
+
+    return await markdownItShiki({
+        themes: {
+            light: lightTheme,
+            dark: darkTheme,
+        },
+    });
+})();
+
 export default function(eleventyConfig) {
     eleventyConfig.addPassthroughCopy('src/assets');
     eleventyConfig.addPassthroughCopy('src/blog/**/*.svg');
@@ -53,35 +80,12 @@ export default function(eleventyConfig) {
         transformOnRequest: false,
     });
 
-    eleventyConfig.amendLibrary('md', async mdlib => {
-        const darkTheme = structuredClone((await bundledThemes['catppuccin-mocha']()).default);
-        const lightTheme = structuredClone((await bundledThemes['catppuccin-latte']()).default);
-
-        for (const tokenColors of [
-            darkTheme.tokenColors,
-            lightTheme.tokenColors,
-        ]) {
-            if (!tokenColors) continue;
-            for (const tokenSetting of tokenColors) {
-                delete tokenSetting.settings.fontStyle;
-            }
-        }
-
-        darkTheme.colors = lightTheme.colors = {
-            'editor.background': 'var(--code-background)',
-            'editor.foreground': 'var(--text-color)',
-        };
-
+    eleventyConfig.amendLibrary('md', mdlib => {
         mdlib = mdlib
             .use(markdownItAttrs)
             .use(markdownItAnchor, {permalink: markdownItAnchor.permalink.headerLink({safariReaderFix: true})})
             .use(markdownItFootnote)
-            .use(await markdownItShiki({
-                themes: {
-                    light: lightTheme,
-                    dark: darkTheme,
-                },
-            }));
+            .use(shikiPlugin);
 
         mdlib.renderer.rules.footnote_block_open = () => (
             '<section class="footnotes">\n' +
