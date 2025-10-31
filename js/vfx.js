@@ -1,4 +1,4 @@
-var l=`
+var b=`
 precision mediump float;
 
 attribute vec2 a_position;
@@ -9,13 +9,15 @@ void main() {
     v_texCoord = vec2(a_position.x, 1.0 - a_position.y);
     gl_Position = vec4((a_position - vec2(0.5)) * vec2(2.0), 0.0, 1.0);
 }
-`,g=`
+`,x=`
 precision highp float;
 
 varying vec2 v_texCoord;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_dpi;
+uniform vec3 u_darkSquare;
+uniform vec3 u_lightSquare;
 
 float sdBox( in vec2 p, in vec2 rad )
 {
@@ -28,15 +30,6 @@ void main() {
 
     const float SPEED = 0.1;
     const float TAU = 6.283185307179586;
-    //const vec3 COLOR_A = vec3(1.0, 0.0, 1.0) * 0.5;
-    //const vec3 COLOR_B = vec3(0.0);
-    const vec3 COLOR_A = vec3(0.5, 0.05, 0.375);
-    const vec3 COLOR_B = vec3(
-        10.0 / 255.0,
-        11.0 / 255.0,
-        18.0 / 255.0
-    );
-
     vec2 fragCoord = v_texCoord * u_resolution;
 
     // Center the checkerboard
@@ -76,10 +69,10 @@ void main() {
     float coverage = checker_fill ^^ flip_fill ? box_coverage_adjacent : box_coverage_center;
     coverage = clamp(flip_fill ? CHECKER_SHRINK - coverage : coverage, 0.0, 1.0);
 
-    vec3 color = mix(COLOR_A, COLOR_B, vec3(coverage));
+    vec3 color = mix(u_lightSquare, u_darkSquare, vec3(coverage));
     gl_FragColor = vec4(color, 1.0);
 }
-`,v=(o,e,c)=>{let t=o.createShader(c);if(!t)throw new Error("Could not create shader.");if(o.shaderSource(t,e),o.compileShader(t),!o.getShaderParameter(t,o.COMPILE_STATUS)){let n=o.getShaderInfoLog(t)??"";throw new Error(`Could not compile WebGL program. 
-`+n)}return t},u=class{gl;program;uniforms;attribs;constructor(e,c,t){let n=v(e,c,e.VERTEX_SHADER),s=v(e,t,e.FRAGMENT_SHADER),r=e.createProgram();if(!r)throw new Error("Could not create program");if(e.attachShader(r,n),e.attachShader(r,s),e.linkProgram(r),!e.getProgramParameter(r,e.LINK_STATUS)){let i=e.getProgramInfoLog(r)??"";throw new Error(`Could not compile WebGL program. 
-`+i)}this.gl=e,this.program=r,this.uniforms={},this.attribs={};let _=e.getProgramParameter(r,e.ACTIVE_UNIFORMS);for(let i=0;i<_;i++){let{name:a}=e.getActiveUniform(r,i);this.uniforms[a]=e.getUniformLocation(r,a)}let d=e.getProgramParameter(r,e.ACTIVE_ATTRIBUTES);for(let i=0;i<d;i++){let{name:a}=e.getActiveAttrib(r,i);this.attribs[a]=e.getAttribLocation(r,a)}}},C=o=>{let e=o.getContext("webgl");if(!e)return;let c=e.createBuffer();e.bindBuffer(e.ARRAY_BUFFER,c),e.bufferData(e.ARRAY_BUFFER,new Float32Array([0,0,0,1,1,0,1,1,0,1,1,0]),e.STATIC_DRAW);let t=new u(e,l,g);e.useProgram(t.program);let n=t.attribs.a_position;e.enableVertexAttribArray(n),e.vertexAttribPointer(n,2,e.FLOAT,!1,0,0);let s=-1,r=-1,_=()=>{let a=o.getBoundingClientRect(),f=Math.round(a.width*window.devicePixelRatio),m=Math.round(a.height*window.devicePixelRatio);(s!==f||r!==m)&&(s=o.width=f,r=o.height=m,e.viewport(0,0,e.drawingBufferWidth,e.drawingBufferHeight)),e.uniform2f(t.uniforms.u_resolution,f,m),e.uniform1f(t.uniforms.u_dpi,window.devicePixelRatio)},d=document.getElementById("landing-container"),i=a=>{requestAnimationFrame(i),_(),!((d?.clientWidth??0)>=o.clientWidth)&&(e.uniform1f(t.uniforms.u_time,a*.001),e.drawArrays(e.TRIANGLES,0,6))};requestAnimationFrame(i)},h=()=>{let o=document.getElementById("checkerboard");o&&C(o)};document.readyState==="complete"?h():document.addEventListener("DOMContentLoaded",()=>h(),{once:!0});
+`,v=(r,e,s)=>{let o=r.createShader(s);if(!o)throw new Error("Could not create shader.");if(r.shaderSource(o,e),r.compileShader(o),!r.getShaderParameter(o,r.COMPILE_STATUS)){let c=r.getShaderInfoLog(o)??"";throw new Error(`Could not compile WebGL program. 
+`+c)}return o},h=class{gl;program;uniforms;attribs;constructor(e,s,o){let c=v(e,s,e.VERTEX_SHADER),d=v(e,o,e.FRAGMENT_SHADER),t=e.createProgram();if(!t)throw new Error("Could not create program");if(e.attachShader(t,c),e.attachShader(t,d),e.linkProgram(t),!e.getProgramParameter(t,e.LINK_STATUS)){let a=e.getProgramInfoLog(t)??"";throw new Error(`Could not compile WebGL program. 
+`+a)}this.gl=e,this.program=t,this.uniforms={},this.attribs={};let f=e.getProgramParameter(t,e.ACTIVE_UNIFORMS);for(let a=0;a<f;a++){let{name:n}=e.getActiveUniform(t,a);this.uniforms[n]=e.getUniformLocation(t,n)}let _=e.getProgramParameter(t,e.ACTIVE_ATTRIBUTES);for(let a=0;a<_;a++){let{name:n}=e.getActiveAttrib(t,a);this.attribs[n]=e.getAttribLocation(t,n)}}},C=r=>{let e=r.getContext("webgl");if(!e)return;let s=e.createBuffer();e.bindBuffer(e.ARRAY_BUFFER,s),e.bufferData(e.ARRAY_BUFFER,new Float32Array([0,0,0,1,1,0,1,1,0,1,1,0]),e.STATIC_DRAW);let o=new h(e,b,x);e.useProgram(o.program);let c=o.attribs.a_position;e.enableVertexAttribArray(c),e.vertexAttribPointer(c,2,e.FLOAT,!1,0,0);let d=-1,t=-1,f=()=>{let i=r.getBoundingClientRect(),u=Math.round(i.width*window.devicePixelRatio),m=Math.round(i.height*window.devicePixelRatio);(d!==u||t!==m)&&(d=r.width=u,t=r.height=m,e.viewport(0,0,e.drawingBufferWidth,e.drawingBufferHeight)),e.uniform2f(o.uniforms.u_resolution,u,m),e.uniform1f(o.uniforms.u_dpi,window.devicePixelRatio)},_=i=>{i?(e.uniform3f(o.uniforms.u_darkSquare,10/255,11/255,18/255),e.uniform3f(o.uniforms.u_lightSquare,.5,.05,.375)):(e.uniform3f(o.uniforms.u_darkSquare,50/255,45/255,69/255),e.uniform3f(o.uniforms.u_lightSquare,1,.375,.75))},a=window.matchMedia("(prefers-color-scheme: dark)");a.addEventListener("change",i=>{_(i.matches)}),_(a.matches);let n=document.getElementById("landing-container"),l=i=>{requestAnimationFrame(l),f(),!((n?.clientWidth??0)>=r.clientWidth)&&(e.uniform1f(o.uniforms.u_time,i*.001),e.drawArrays(e.TRIANGLES,0,6))};requestAnimationFrame(l)},g=()=>{let r=document.getElementById("checkerboard");r&&C(r)};document.readyState==="complete"?g():document.addEventListener("DOMContentLoaded",()=>g(),{once:!0});
 //# sourceMappingURL=vfx.js.map
