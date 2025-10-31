@@ -34,7 +34,7 @@
 <p>I started out by just storing all the code points as JavaScript arrays. When trying to size-optimize the app, I noticed that they were a significant part of the bundle size and switched to a pretty simple method that used <a href="https://en.wikipedia.org/wiki/LEB128" class="external-link">LEB128</a> and run-length encoding. That worked until I decided to include the CJK "slices", and things got much larger.</p>
 <p>This made me curious about the best way to encode all that data, which sent me down a bit of a rabbit hole. It might not have been the best return on my time investment (my app also ships WebAssembly, which is much larger, relatively speaking), but I learned a lot along the way and got some interesting results.</p>
 <p>As a disclaimer, I'm not an expert in the field of compression, and this post chronicles my first real forays into the field. If anybody <em>is</em> a compression expert, I'd love to hear from you! I've had a hard time finding good compression algorithms for highly-clustered data. As such, I might be missing some obvious algorithm that'd work great on my dataset.</p>
-<h2>The problem</h2>
+<h2 id="the-problem" tabindex="-1"><a class="header-anchor" href="#the-problem"><span>The problem</span></a></h2>
 <p>In abstract terms, our goal is to compress a <em>set of integers</em> as much as possible. For compression purposes, it's useful to conceptualize it as an ascending list (which lets you do things like encode gaps or run lengths); or as a bitset, where 1 means the integer at that location is present and 0 means it's absent. I'll do both when explaining various compression methods.</p>
 <p>Our input dataset (sets of codepoints by language, and "slices" of those sets) has certain characteristics that differ from a purely random dataset, and any good compression scheme should be able to handle those properties:</p>
 <ul>
@@ -43,9 +43,9 @@
 <li><em>Sometimes</em> there are sparse, more random sections. The previous two bullet points might have made you think about using run-length encoding, but this is why it's not a slam dunk--for the CJK subsets, perhaps 1 in every 3 or 4 codepoints will be present.</li>
 </ul>
 <p>Many compression schemes that work well on random data will perform worse, often significantly so, on data that's run-heavy.</p>
-<h2>The techniques</h2>
+<h2 id="the-techniques" tabindex="-1"><a class="header-anchor" href="#the-techniques"><span>The techniques</span></a></h2>
 <p>I implemented and tested a variety of approaches, some ad-hoc and some described in the literature I could find. Most integer-set compression algorithm research seems to be focused on compressing inverted indexes, which are a lot sparser and less clustered than the Unicode data I'm compressing. The paper <a href="https://arxiv.org/abs/1908.10598" class="external-link"><em>Techniques for Inverted Index Compression</em></a> gives a good summary of these algorithms. Many of them are also intended for <em>online</em> usage as data structures without any decompression step, whereas I care purely about compressed size.</p>
-<h3>LEB128 with ranges</h3>
+<h3 id="leb128-with-ranges" tabindex="-1"><a class="header-anchor" href="#leb128-with-ranges"><span>LEB128 with ranges</span></a></h3>
 <p>This is what I started with, and it has a lot of overhead but compresses fairly well if put through something like gzip:</p>
 <ol>
 <li>Group the input into ranges.</li>
@@ -59,13 +59,13 @@
 </li>
 </ol>
 <p>It provides a good baseline, especially if compressed.</p>
-<h3>Three data structures in a trenchcoat ("triply partitioned")</h3>
+<h3 id="three-data-structures-in-a-trenchcoat-(%22triply-partitioned%22)" tabindex="-1"><a class="header-anchor" href="#three-data-structures-in-a-trenchcoat-(%22triply-partitioned%22)"><span>Three data structures in a trenchcoat ("triply partitioned")</span></a></h3>
 <p>This was the second encoding I tried, and it turned out to be frustratingly hard to beat. It converts the input set of integers into ranges, and then clusters them into "sparse-ish" and "dense-ish" sections based on the length of each range, and the gap between it and the previous range. Sections with small gaps are stored as bitsets, and sections with large gaps are stored as LEB128-encoded ranges or lone values.</p>
 <p>The complete encoding works like this: first we encode the number of lone values, then the number of ranges, and finally the number of bitsets. We then gap-encode all the lone values in order, followed by the ranges. Finally, we encode all the bitsets, again using gap encoding to encode where each bitset starts.</p>
 <p>Honestly, this encoding might have been the reason I embarked on this endeavor in the first place. I implemented it directly in JavaScript at first, not expecting it to be great, but didn't feel like using it even when it did turn out to be quite small. It requires lots of temporary storage to encode, the decoded output isn't in any sort of order, and it requires implementing two and a half different encoding schemes. I then went off in search of some more "elegant" encoding.</p>
-<h3>Regular bitset + deflate</h3>
+<h3 id="regular-bitset-%2B-deflate" tabindex="-1"><a class="header-anchor" href="#regular-bitset-%2B-deflate"><span>Regular bitset + deflate</span></a></h3>
 <p>This is quite simple, if you assume that somebody else has implemented the <a href="https://en.wikipedia.org/wiki/Deflate" class="external-link">Deflate</a> algorithm for you. It's a "reference algorithm" in that I didn't expect to use it directly, but rather to compare other algorithms against it. It's actually close to optimal for data where each integer has an independent chance of being present or absent, and does very well on many of the synthetic datasets I tested on, but performs poorly on all my real-world datasets. It therefore serves as a good reminder that synthetic benchmarks can be deceptive.</p>
-<h3>Prefix codes</h3>
+<h3 id="prefix-codes" tabindex="-1"><a class="header-anchor" href="#prefix-codes"><span>Prefix codes</span></a></h3>
 <p>These aren't a good compression technique in and of themselves, but are useful building blocks in a compression scheme. A variable-length <a href="https://en.wikipedia.org/wiki/Prefix_code" class="external-link">prefix code</a> allows you to unambiguously encode numbers with differing bit lengths, with the idea being that more frequent numbers can be assigned smaller codewords. I only implemented some <a href="https://en.wikipedia.org/wiki/Universal_code_(data_compression)" class="external-link">universal codes</a>, which assume that smaller numbers are more frequent:</p>
 <ul>
 <li>
@@ -79,27 +79,27 @@
 </li>
 </ul>
 <p>I tried implementing a couple more as well, but none of them could beat Elias gamma coding.</p>
-<h3>Gap coding</h3>
+<h3 id="gap-coding" tabindex="-1"><a class="header-anchor" href="#gap-coding"><span>Gap coding</span></a></h3>
 <p>Instead of storing each integer directly, we store the <em>gaps</em> between successive integers. This is actually quite good on sparser data, but falls over on long runs of successive integers. This is a pretty elementary technique, but we can pair it with a universal code to take advantage of their "lower numbers are more common" property. For my benchmarks, I'll be using the Elias gamma code since it gets the best result.</p>
 <p>This is often referred to as "delta encoding", but I refer to it as gap coding to avoid confusion with Elias delta coding as mentioned above.</p>
-<h3>Run-length encoding</h3>
+<h3 id="run-length-encoding" tabindex="-1"><a class="header-anchor" href="#run-length-encoding"><span>Run-length encoding</span></a></h3>
 <p>Instead of storing the gaps between successive integers, we treat the input as a series of alternating runs of absences and presences, and encode the run lengths. This has the opposite tradeoff to gap coding: on dense data, we only need to encode a single run length, but on sparser data where most runs are of length 1, we waste space encoding every length. As with gap coding, this is typically paired with a prefix code.</p>
-<h3>"Flip coding"</h3>
+<h3 id="%22flip-coding%22" tabindex="-1"><a class="header-anchor" href="#%22flip-coding%22"><span>"Flip coding"</span></a></h3>
 <p>I haven't seen this technique described anywhere before, and I'm not sure if I'm missing something, because it seems to provide very good compression performance while being relatively simple to implement. It behaves like gap coding, but when two successive integers are present (that is, after a gap of 0), we switch to encoding the gaps between <em>absences</em>. After two successive gaps between absences, we switch back, and so on. This provides a natural hybrid between run-length encoding and gap coding.</p>
 <p>It has the nice advantage that it can also be implemented in terms of run lengths, although not straightforwardly--I almost gave up on it because my original implementation was incorrect and its output was larger than the naive implementation's. There's some finesse involved in mapping the states.</p>
 <p>If you're experienced in the field of data compression, please let me know: is this a known approach? Intuitively, it makes sense why it would work so well; we get to avoid the redundancy of run-length encoding in sparse data without blowing up in very dense data. Still, I'm not sure if its improved performance is inherent to it being a good fit for the data, or an artifact of the specific way I'm using it (like, could it be compensating for my prefix code not matching the actual data distribution, and shifting the distribution around to better fit it?)</p>
-<h3>Elias-Fano encoding</h3>
+<h3 id="elias-fano-encoding" tabindex="-1"><a class="header-anchor" href="#elias-fano-encoding"><span>Elias-Fano encoding</span></a></h3>
 <p>(Not to be confused with Shannon-Fano-Elias coding, which is what comes up if you search for this on Google. Those guys are the <a href="https://en.wikipedia.org/wiki/List_of_topics_named_after_Leonhard_Euler" class="external-link">Euler</a> and <a href="https://en.wikipedia.org/wiki/List_of_things_named_after_Carl_Friedrich_Gauss" class="external-link">Gauss</a> of compression.)</p>
 <p>This idea was described in <a href="https://arxiv.org/abs/1206.4300" class="external-link"><em>Quasi-Succinct Indices</em></a>, and kept coming up when I looked for ways to encode an ascending set of integers. However, it turned out to not quite be what I was looking for. It's intended to be used as an in-place data structure without any decompression step, and sacrifices some space to do so.</p>
 <p>It's a bit like Golomb-Rice coding--you divide each integer into high and low bits. The low bits are packed together in a bit vector, and the <em>gaps</em> between the high bits (not the high bits directly this time) are unary-encoded and stored in another bit vector.</p>
 <p>This isn't a very good encoding for our purposes because it can't take advantage of the data distribution at all; any runs or gaps are ignored. There's a hard floor of 2 bits per element. It's pretty good for very-sparse-yet-random data, but falls over when representing my Unicode-related data.</p>
-<h3>Binary interpolative coding</h3>
+<h3 id="binary-interpolative-coding" tabindex="-1"><a class="header-anchor" href="#binary-interpolative-coding"><span>Binary interpolative coding</span></a></h3>
 <p>Hallelujah, finally a compression method with some theoretical underpinnings that works well on clustered data! This method operates recursively. We start by encoding the sequence length and its maximum value using some other method (like a different type of prefix code).</p>
 <p>We then enter the recursive step of the algorithm: given an integer sequence and a lower and upper bound, we encode the middle value of the sequence, then recurse into the sequence's left and right halves. We can encode the middle value using fewer bits because we know it's within a certain range. For our initial step, the lower and upper bound are 0 and the maximum value minus 1 respectively. We can restrict the range even further because we know the length of the sequence and the fact that we're encoding the <em>middle</em> value, so there must be some <code>(len - 1) / 2</code> integers below it and <code>(len - 1) / 2</code> integers above it. After we encode the middle value of the sequence, we can then encode the left and right halves with tighter bounds, and repeat the process until the entire sequence is encoded.</p>
 <p>My implementation is based on <a href="https://github.com/jermp/interpolative_coding" class="external-link">this easy-to-read C++ implementation</a> and the accompanying technical report. I also implemented a sequential version described in <a href="https://dl.acm.org/doi/10.1145/3673791.3698419" class="external-link"><em>Binary Interpolative Coding Revisited</em></a>, which does a great job explaining the algorithm in-depth. The sequential version seems to have slightly different space characteristics--the paper implies it should be strictly better, and it is for real-world data, but it sometimes performs worse on synthetic data.</p>
 <p>There's also some variation based on the specific binary encoding you use. When encoding a number with a known-restricted range, some numbers might require one more bit to encode than others if that range isn't a power-of-two size. You can choose which numbers get the more compact encoding--the two methods described in the C++ implementation are to give the compact encoding to the leftmost items in the range, or to the centered items.</p>
 <p>The combination of sequential vs. recursive and leftmost vs. centered encoding does result in <em>slightly</em> different compression characteristics. For the pretty graphs, I chose sequential encoding with leftmost encoding since that performed the best on real-world data.</p>
-<h2>The datasets</h2>
+<h2 id="the-datasets" tabindex="-1"><a class="header-anchor" href="#the-datasets"><span>The datasets</span></a></h2>
 <p>My original dataset, and the one I'll end up compressing for real, is the <code>nam-files</code> list. However, I decided to also test the algorithms on various other real-world and synthetic data; the former to see where each algorithm <em>does</em> shine, and the latter to get some pretty graphs. My datasets are:</p>
 <ul>
 <li>
@@ -130,9 +130,9 @@
 <p>Geometrically-distributed run lengths; we generate runs of integers where the run length follows a geometric distribution. We can again vary both the density and average run length.</p>
 </li>
 </ul>
-<h2>The results</h2>
+<h2 id="the-results" tabindex="-1"><a class="header-anchor" href="#the-results"><span>The results</span></a></h2>
 <p>Finally, we get to the good part. Here's how the algorithms did on various datasets.</p>
-<h3><code>nam-files</code> main list</h3>
+<h3 id="nam-files-main-list" tabindex="-1"><a class="header-anchor" href="#nam-files-main-list"><span><code>nam-files</code> main list</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./nam-files_bar.svg#chart"></use>
 </svg>
@@ -141,26 +141,26 @@
 <p>The "triple partitioned" strategy of bitsets + single values + ranges does really well, especially considering it uses LEB128 for everything, and even outperforms binary interpolative coding!</p>
 <p>Just using zlib on a bitset loses out a lot; general-purpose compression algorithms <em>are</em> possible to beat, especially if you know a lot about the structure of your data. This will be a common theme--zlib on a bitset does well on synthetic data, but not so much on any real-world data.</p>
 <p>Elias-Fano isn't on the chart because it uses like 70KB and dwarfs all the other algorithms.</p>
-<h3><code>nam-files</code> "slices"</h3>
+<h3 id="nam-files-%22slices%22" tabindex="-1"><a class="header-anchor" href="#nam-files-%22slices%22"><span><code>nam-files</code> "slices"</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./subset-slices_bar.svg#chart"></use>
 </svg>
 <p>Now this is interesting! Binary interpolative coding wins here by a small but significant margin. The other approaches all seem to hit a wall at 51-53KB at best, and binary interpolative coding is the only one to shave that down to 47KB. My "flip coding" approach is still the second best, though.</p>
 <p>This is also one of the few cases where Elias-Fano encoding isn't terrible, and there's less of a margin between LEB128 + ranges and the best approaches (it's ~1.5x worse, instead of ~2x like the <code>nam-files</code> main list). All the methods seem to perform pretty similarly here.</p>
-<h3>Unicode Character Database properties</h3>
+<h3 id="unicode-character-database-properties" tabindex="-1"><a class="header-anchor" href="#unicode-character-database-properties"><span>Unicode Character Database properties</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./ucd_bar.svg#chart"></use>
 </svg>
 <p>Gap coding and Elias-Fano encoding are both omitted. There are a lot of very large ranges in this dataset, and both of those approaches fall over hard. Gap coding takes 360KB and Elias-Fano encoding takes a whopping 1.2MB!</p>
 <p>With those two out of the picture, things become a lot closer. Gamma-coded run-length encoding is the leader, with "flip coding" not far behind, and the three-data-structures-in-a-trench-coat approach being annoyingly good as usual.</p>
 <p>There are a couple interesting things here: LEB128 + ranges is competitive, and binary interpolative coding actually performs quite poorly compared to the leaders! I think it tends to trail slightly once the clusters get <em>really</em> large.</p>
-<h3>Font language membership</h3>
+<h3 id="font-language-membership" tabindex="-1"><a class="header-anchor" href="#font-language-membership"><span>Font language membership</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./language-membership_bar.svg#chart"></use>
 </svg>
 <p>Once again, gap coding and Elias-Fano encoding are omitted because they don't like this dataset at all. Remember, I can control the numeric mapping here, so there's probably going to be a long run of present integers (ones) at the beginning, a long run of absent integers (zeroes) at the end, and some randomness mainly in the middle. Approaches that perform poorly on clustered data won't do well here.</p>
 <p>While the datasets are quite different, the results are surprisingly similar to the UCD ones. Gap coding and Elias-Fano encoding are terrible, the "run-lengthy" approaches do well, and binary interpolative coding falls behind.</p>
-<h3>Preprocessed text</h3>
+<h3 id="preprocessed-text" tabindex="-1"><a class="header-anchor" href="#preprocessed-text"><span>Preprocessed text</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./atebits-bwt-mtf_bar.svg#chart"></use>
 </svg>
@@ -192,7 +192,7 @@
 </li>
 </ul>
 <p>That's all for real-world data. Now onto the synthetic data with accompanying pretty line graphs!</p>
-<h3>Uniform random</h3>
+<h3 id="uniform-random" tabindex="-1"><a class="header-anchor" href="#uniform-random"><span>Uniform random</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic_line.svg#chart"></use>
 </svg>
@@ -204,14 +204,14 @@
 <p>The two contenders closest to the lower bound, in this case the <a href="https://en.wikipedia.org/wiki/Binary_entropy_function" class="external-link">binary entropy function</a>, are binary interpolative coding and a plain zlib-compressed bitset. The former does better when the density is farther from 50/50, and the latter does better as the density approaches 50/50 and we're trying to compress purely random data.</p>
 <p>Flip coding, the green line, starts out tracking gap coding, the blue line. As the density increases, it does slightly worse and veers upwards to match run-length encoding; it really does seem to be a hybrid of the two. As we cross the halfway mark, gap coding falls behind since it has to encode all those ones. It still does decrease towards the end (I think it's because the encoding for 1 is smaller than the encoding for 2 or 3, so as we get more gaps of length 1, it does slightly less badly).</p>
 <p>The triple-partitioned method starts to trace out the very steep arc of what would be LEB128-encoded ranges, but it's cut off as the bitset takes over. This cutoff can actually be tuned by changing the gap length threshold for using a bitset.</p>
-<h3>Increasing autocorrelation (10% density)</h3>
+<h3 id="increasing-autocorrelation-(10%25-density)" tabindex="-1"><a class="header-anchor" href="#increasing-autocorrelation-(10%25-density)"><span>Increasing autocorrelation (10% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-autocorr-10_line.svg#chart"></use>
 </svg>
 <p>Here we can clearly see the problem with Elias-Fano encoding: even as the autocorrelation increases, and the entropy goes down with it, the encoded size remains constant. It doesn't adapt to the entropy of the input at all.</p>
 <p>Tracing the pink line for binary interpolative coding, we can see more evidence for our earlier hypothesis that it gets worse as the clusters get larger. At the left end of the graph where the data is uniformly random, it's the best performer, but it's overtaken by gap coding and then the rest of the pack shortly after.</p>
 <p>Gap coding itself starts off pretty strong, but starts losing out at the very end once the clusters become very large. All the run-length-based approaches really start to cluster together near the bottom, even the triple-partitioned and LEB128 approaches that start off badly. Notice once again how flip coding starts off matching gap coding, and slowly moves towards the performance of run-length encoding.</p>
-<h3>Increasing autocorrelation (50% density)</h3>
+<h3 id="increasing-autocorrelation-(50%25-density)" tabindex="-1"><a class="header-anchor" href="#increasing-autocorrelation-(50%25-density)"><span>Increasing autocorrelation (50% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-autocorr-50_line.svg#chart"></use>
 </svg>
@@ -222,38 +222,38 @@
 </svg>
 <p>As we saw on the uniformly-random graph, the bitset-based approaches are the only ones that don't waste space trying to encode purely-random data on the left side of the graph. The zlib-encoded bitset is actually the best overall performer here, only being slightly overtaken near the end of the graph.</p>
 <p>Gap coding is starting to fall behind now. Flip coding is dragged towards it a bit, but manages to recover. Binary interpolative coding continues its pattern of doing poorly on highly-clustered data while not falling over.</p>
-<h3>Increasing autocorrelation (90% density)</h3>
+<h3 id="increasing-autocorrelation-(90%25-density)" tabindex="-1"><a class="header-anchor" href="#increasing-autocorrelation-(90%25-density)"><span>Increasing autocorrelation (90% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-autocorr-90_line.svg#chart"></use>
 </svg>
 <p>For the encodings that treat ones and zeroes (presences and absences) symmetrically, this is just the 10% density graph again. LEB128 + ranges and the "triple partitioned" approach aren't quite symmetrical--they can encode individual presences but not individual absences--but they're close.</p>
 <p>Gap coding completely fails to take advantage of sequential runs of ones, which means flip coding actually does quite well all around. It's not really the <em>best</em> performer at any point, but it's pretty good as the autocorrelation increases.</p>
 <p>Let's now look at the other clustered synthetic dataset.</p>
-<h3>Geometrically-distributed run lengths (10% density)</h3>
+<h3 id="geometrically-distributed-run-lengths-(10%25-density)" tabindex="-1"><a class="header-anchor" href="#geometrically-distributed-run-lengths-(10%25-density)"><span>Geometrically-distributed run lengths (10% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-cluster-10_line.svg#chart"></use>
 </svg>
 <p>Note that the average run length parameter increases exponentially here; I mainly did that to make the graph more <s>interesting to look at</s> informative.</p>
 <p>As we look to the right of the graph, we can clearly see the run-length-based approaches (and zlib, I guess) really group together near the bottom. Gap coding and binary interpolative coding both start out strong but quickly lag behind.</p>
-<h3>Geometrically-distributed run lengths (50% density)</h3>
+<h3 id="geometrically-distributed-run-lengths-(50%25-density)" tabindex="-1"><a class="header-anchor" href="#geometrically-distributed-run-lengths-(50%25-density)"><span>Geometrically-distributed run lengths (50% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-cluster-50_line.svg#chart"></use>
 </svg>
 <p>As before, LEB128 + ranges and Elias-Fano both balloon in size at 50% density, so I've removed them from the graph.</p>
 <p>Very interestingly, the "triple partitioned" approach leads by a visible margin on the right of the graph, outperforming gamma-coded run lengths! Maybe that's when the runs become long enough that LEB128 can encode them more efficiently than gamma coding?</p>
-<h3>Geometrically-distributed run lengths (90% density)</h3>
+<h3 id="geometrically-distributed-run-lengths-(90%25-density)" tabindex="-1"><a class="header-anchor" href="#geometrically-distributed-run-lengths-(90%25-density)"><span>Geometrically-distributed run lengths (90% density)</span></a></h3>
 <svg viewBox="0 0 800 450">
   <use xlink:href="./synthetic-varying-cluster-90_line.svg#chart"></use>
 </svg>
 <p>And finally, this is only here for completeness' sake. You can tell that gap coding "hits a wall" where it's just not possible to encode using less than 1 bit per present integer.</p>
-<h2>Making sense of it all</h2>
+<h2 id="making-sense-of-it-all" tabindex="-1"><a class="header-anchor" href="#making-sense-of-it-all"><span>Making sense of it all</span></a></h2>
 <p>OK, so those graphs were pretty fun to look at. What have we learned?</p>
 <p>Both of the techniques I learned about from inverted index compression, binary interpolative coding and Elias-Fano encoding, perform best on sparser data that's less clustered. Elias-Fano doesn't take advantage of clustering at all, and failed badly on some of the datasets. Binary interpolative coding was specifically mentioned in the literature as being good on clustered data, and it never fell over, but it still lost to run-length encoding in real-world and synthetic tests. This makes sense, since I'd imagine inverted indices look very different from Unicode codepoint ranges and are probably a lot sparser.</p>
-<p>If you only looked at the synthetic benchmarks, you might be tempted to say "just use zlib, compression is a solved problem". The real-world benchmarks tell a very different story, though! Using zlib to compress a bitset gave mediocre results on the type of data I actually need to compress.[^1] Sure, you can try to preprocess your data with things like run-length encoding and variable-length integers, but at that point you've started rolling your own compression and might as well commit to it.</p>
+<p>If you only looked at the synthetic benchmarks, you might be tempted to say "just use zlib, compression is a solved problem". The real-world benchmarks tell a very different story, though! Using zlib to compress a bitset gave mediocre results on the type of data I actually need to compress.<sup class="footnote-ref"><a href="#fn1" id="fnref1">[1]</a></sup> Sure, you can try to preprocess your data with things like run-length encoding and variable-length integers, but at that point you've started rolling your own compression and might as well commit to it.</p>
 <p>Heavy theoretical knowledge isn't required to get good results, but it is required to understand <em>why</em> you're getting good results. My "flip coding" approach turned out to be the best and simplest overall, and it's what I ended up implementing. It makes intuitive sense why it works--that's why I thought to try it in the first place--but I still don't fully understand why it outperforms gap coding and run-length encoding on things like the BWT+MTF text data.</p>
 <p>I wasn't focused specifically on code size or performance, but I did have a bias towards "elegant" algorithms. I wanted to avoid ones that switch between multiple different techniques and require implementing all of them, require significant temporary storage, or require postprocessing of the data. Flip coding is nice because the algorithm can operate on run lengths and ranges, and it outputs a naturally-sorted set of coalesced ranges. I got lucky that Elias gamma coding was the smallest, because it's also the simplest to implement. The algorithm <a href="https://github.com/valadaptive/smol-range/blob/8cfd48f9625150a300870486ad634b5150daa1b4/packages/decompress/src/index.ts" class="external-link">can be implemented in JavaScript</a> relatively succinctly--the decompressor is ~400 bytes minified.</p>
 <p>I'd also like to know if there are succinct data structures for integer sets that are very "range-y". For my application, I need to pass every single range over an API boundary anyway, so I can't make use of any in-place data structures, but it seems like a good area of exploration. Existing data structures for this purpose make an effort to avoid overhead, but they're not <em>succinct</em>. The new Incremental Font Transfer standard uses <a href="https://github.com/w3c/PFE-analysis/blob/696b255f22ef720d030c05f85a0b5feee99f6722/design/patch_subset_protocol_v3.md#sparsebitset" class="external-link">a tree of bit sets</a>, and HarfBuzz and Google Fonts' <code>read-fonts</code> crate use <a href="https://github.com/googlefonts/fontations/blob/0a82dd4e50034c47010e4556af29cface3996e99/read-fonts/src/collections/int_set/mod.rs" class="external-link">a paged bit set</a>. <a href="https://unicode-org.github.io/icu/design/struct/utrie" class="external-link">ICU appears to use something similar, though I haven't looked much into it.</a></p>
-<h2>Things I haven't tried</h2>
+<h2 id="things-i-haven't-tried" tabindex="-1"><a class="header-anchor" href="#things-i-haven't-tried"><span>Things I haven't tried</span></a></h2>
 <p>I came across a few techniques that may or may not be worth trying:</p>
 <ul>
 <li>
@@ -266,11 +266,16 @@
 <p><a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Malvar_DCC06.pdf" class="external-link">Adaptive run-length/Golomb-Rice encoding</a>: This algorithm appears to be covered by <a href="https://patents.google.com/patent/US7580585B2/en" class="external-link">a patent</a> that will expire next year. It's focused on encoding streams of integers that follow a generalized Gaussian distribution (most of the integers are zeroes, a few are nonzero) and I'm not sure if it's really adaptable for encoding a set of integers.</p>
 </li>
 </ul>
-<h2>Conclusion</h2>
+<h2 id="conclusion" tabindex="-1"><a class="header-anchor" href="#conclusion"><span>Conclusion</span></a></h2>
 <p>I came into this expecting it to be a solved problem, but if it is, then I certainly haven't found the solution. I expected to end up using a technique I discovered from previous literature, but "flip coding" turned out to perform the best overall, even on datasets that are nothing like what I intend to compress. Surely it has to have been described <em>somewhere</em> before. Still, I'm glad that such a simple encoding gives such good results.</p>
 <p>As I mentioned above, <a href="https://github.com/valadaptive/smol-range" class="external-link">I turned it into a JavaScript library</a>, and I'll be using it to encode Unicode data in future versions of Glypht. I haven't benchmarked it against other compression techniques, but my focus is mainly on code size anyway.</p>
 <p>I've also published <a href="https://github.com/valadaptive/set-encoding-playground" class="external-link">the Rust code I used for this analysis</a>, if you want to reproduce these results or look at other compression methods.</p>
-<p>[^1]: I also tried compressing arrays of integers, and it was easily the worst method.</p>
+<section class="footnotes">
+<ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p>I also tried compressing arrays of integers, and it was easily the worst method. <a href="#fnref1" class="footnote-backref">↩︎</a></p>
+</li>
+</ol>
+</section>
 
 </main>
 
