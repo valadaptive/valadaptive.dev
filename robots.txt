@@ -1,0 +1,4 @@
+Sitemap: https://valadaptive.dev/sitemap.xml
+
+User-agent: *
+Allow: /

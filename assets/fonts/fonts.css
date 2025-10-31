@@ -1,0 +1,27 @@
+@font-face {
+  font-family: "Fira Sans";
+  font-display: swap;
+  font-style: normal;
+  font-weight: 150 900;
+  font-stretch: 75 100;
+  src: url("assets/fonts/FiraSans.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Fira Sans";
+  font-display: swap;
+  font-style: oblique 8deg;
+  font-weight: 150 900;
+  font-stretch: 75 100;
+  src: url("assets/fonts/FiraSans-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Fira Code";
+  font-display: swap;
+  font-style: normal;
+  font-weight: 300 700;
+  font-stretch: 100;
+  src: url("assets/fonts/FiraCode.woff2") format("woff2");
+}
+
