@@ -1,0 +1,4 @@
+@mixin displayFont {
+    font-family: var(--header-font);
+    font-variation-settings: "opsz" 32;
+}

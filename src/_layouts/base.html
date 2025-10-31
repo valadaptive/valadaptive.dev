@@ -1,0 +1,39 @@
+---
+layout: 'set-date.11ty.js'
+---
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <link rel="preload" href="/style.css" as="style">
+        {{ header_extras }}
+        <title>{{ title }}{% if not isMainPage %} · valadaptive.dev{% endif %}</title>
+        <link rel="stylesheet" href="/style.css">
+        <link rel="icon" href="/assets/images/favicon.png">
+        {% if description %}
+        <meta name="description" content="{{ description | escape }}">
+        {% endif %}
+        <link rel="canonical" href="{{deployedBaseUrl | escape}}{{ page.url | escape }}">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script src="/js/search.js" defer async type="module"></script>
+    </head>
+    <body>
+        <div id="navigation-bar">
+            <ul class="navigation-pages">
+                <li><a class="{% if nav-slug == "home" %} active {% endif %}" href="/">Home</a></li>
+                <li><a class="{% if nav-slug == "blog" %} active {% endif %}" href="/blog/">Blog</a></li>
+                <li><a class="external" href="https://github.com/valadaptive"><span class="external-link">GitHub</span></a></li>
+            </ul>
+            <div id="search-area">
+                <div id="search">
+                    <input id="search-input" type="text" placeholder="Search" disabled>
+                    <button class="icon-button close" id="search-clear" title="Clear search"></button>
+                </div>
+                <button class="icon-button search" id="search-open" title="Search"></button>
+            </div>
+        </div>
+        {{ content }}
+        <div id="search-results-container"></div>
+    </body>
+</html>

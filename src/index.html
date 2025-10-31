@@ -1,0 +1,75 @@
+---
+layout: base.html
+title: Valadaptive
+isMainPage: true
+nav-slug: 'home'
+header_extras: <script src="/js/vfx.js"></script>
+---
+
+<div id="landing-container">
+
+<h1>valadaptive.dev</h1>
+
+<p>
+I'm Valerie, and I'm a JavaScript/TypeScript and Rust developer. My main interest is creative/multimedia software, although I'm interested in programming language design as well.
+</p>
+
+
+<h2>My projects</h2>
+
+<ul>
+    <li>
+        <p><a href="https://ntsc.rs/">ntsc-rs</a></p>
+        <p>
+            Currently my most popular project. It's a video effect that emulates the look of analog TV and VHS tapes. It started out as a Rust port of <a href="https://github.com/JargeZ/ntscqt">ntscqt</a>, and has apparently superseded it. While it runs entirely on the CPU, I've put quite a bit of effort into optimizing it.
+        </p>
+    </li>
+
+    <li>
+        <p><a href="https://glypht.valadaptive.dev/">Glypht</a></p>
+        <p>
+            A comprehensive toolkit for packaging web fonts and making them small and fast. It subsets, instances, and compresses fonts, and even gives you CSS too.
+        </p>
+    </li>
+
+    <li>
+        <p><a href="https://github.com/valadaptive/uwurandom">uwurandom</a></p>
+        <p>
+            A very silly project that generates an endless stream of nonsense using Markov chains (among other methods). It started as a joke kernel module (which lets you pipe catgirl musings directly from the `/dev/uwurandom` block device), but it's quite portable.
+        </p>
+    </li>
+
+    <li>
+        <p><a href="https://github.com/valadaptive/sb3-js">sb3-js</a></p>
+        <p>
+            A greenfield runtime for the <a href="https://scratch.mit.edu/">Scratch programming language</a>. It uses generator functions to implement Scratch's yield-and-resume behavior. It can run most complex Scratch projects flawlessly, and is about as fast as the official Scratch VM in Chrome/V8. It's much more lightweight than the official Scratch runtime, and could be useful for embedding Scratch projects in websites.
+        </p>
+    </li>
+
+    <li>
+        <details>
+            <summary>Half-baked projects</summary>
+
+            <ul>
+                <li>
+                    <p><a href="https://github.com/valadaptive/crazystraw">crazystraw</a></p>
+                    <p>Encrypted instant messaging over WebRTC, using a variation on the OTR protocol. I made this as a final project for my Network Programming course. It's very demo-y, and almost certainly not actually secure.</p>
+                </li>
+
+                <li>
+                    <p><a href="https://github.com/valadaptive/eurydice">eurydice</a></p>
+                    <p>It's like <a href="https://en.wikipedia.org/wiki/ML_(programming_language)">ML</a> mixed with dice notation. It's fun and it works, but it's kind of hard to write. A lot of the syntax was compromised by trying to make it look like dice notation.</p>
+                </li>
+
+                <li>
+                    <p><a href="https://github.com/valadaptive/chatterscribe">chatterscribe</a></p>
+                    <p>A webapp for writing chatlog-based fiction. In retrospect, probably not that much easier than just writing plain text.</p>
+                </li>
+            </ul>
+        </details>
+    </li>
+</ul>
+
+</div>
+
+<canvas id="checkerboard"></canvas>

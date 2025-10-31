@@ -1,0 +1,17 @@
+<ol class="postlist">
+{%- for post in postslist | reverse %}
+	{%- set rawExcerpt = post.data.description or post.data.page.excerpt or post.templateContent -%}
+	{%- set excerpt = rawExcerpt | striptags | replace('\n', ' ') | trim | truncate(220, true, '…') -%}
+	<li class="post-card{% if post.url == url %} post-card-active{% endif %}">
+		<article class="post-card-body">
+			<time class="post-card-date" datetime="{{ post.date | htmlDateString }}">{{ post.date | readableDate }}</time>
+			<h3 class="post-card-title">
+				<a href="{{ post.url }}">{% if post.data.title %}{{ post.data.title }}{% else %}<code>{{ post.url }}</code>{% endif %}</a>
+			</h3>
+			{% if excerpt %}
+			<p class="post-card-excerpt">{{ excerpt }}</p>
+			{% endif %}
+		</article>
+	</li>
+{%- endfor %}
+</ol>
