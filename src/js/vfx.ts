@@ -197,7 +197,9 @@ const attach = (target: HTMLCanvasElement) => {
         }
     };
 
+    let didDrawFirstFrame = false;
     const darkMode = window.matchMedia('(prefers-color-scheme: dark)');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion)');
     darkMode.addEventListener('change', e => {
         updateColors(e.matches);
     });
@@ -212,8 +214,13 @@ const attach = (target: HTMLCanvasElement) => {
             return;
         }
 
+        if (reducedMotion.matches && didDrawFirstFrame) {
+            return;
+        }
+
         gl.uniform1f(shader.uniforms.u_time, timestamp * 0.001);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+        didDrawFirstFrame = true;
     };
     requestAnimationFrame(onFrame);
 };
