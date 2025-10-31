@@ -5,6 +5,7 @@
 
 $monochrome-100: #edf6f8;
 $monochrome-200: #dbe7ee;
+$monochrome-250: #bbc7d1;
 $monochrome-300: #a2acbc;
 $monochrome-400: #767e9c;
 $monochrome-500: #555472;
@@ -67,12 +68,12 @@ $link-color-dark-mode: #8de1e7;
         "border": $monochrome-300,
         "separator": $monochrome-300,
         "bg-hover": $monochrome-200,
-        "bg-active": $monochrome-300,
+        "bg-active": $monochrome-250,
         "highlight": rgba($link-color-light-mode, 0.2),
         "shadow": rgba($monochrome-700, 0.18),
         "focus-ring": rgba($link-color-light-mode, 0.4),
         "code-background": $monochrome-200,
-        "code-border": $monochrome-400
+        "code-border": $monochrome-250
     ));
 }
 

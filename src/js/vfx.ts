@@ -18,6 +18,8 @@ varying vec2 v_texCoord;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_dpi;
+uniform vec3 u_darkSquare;
+uniform vec3 u_lightSquare;
 
 float sdBox( in vec2 p, in vec2 rad )
 {
@@ -30,15 +32,6 @@ void main() {
 
     const float SPEED = 0.1;
     const float TAU = 6.283185307179586;
-    //const vec3 COLOR_A = vec3(1.0, 0.0, 1.0) * 0.5;
-    //const vec3 COLOR_B = vec3(0.0);
-    const vec3 COLOR_A = vec3(0.5, 0.05, 0.375);
-    const vec3 COLOR_B = vec3(
-        10.0 / 255.0,
-        11.0 / 255.0,
-        18.0 / 255.0
-    );
-
     vec2 fragCoord = v_texCoord * u_resolution;
 
     // Center the checkerboard
@@ -78,7 +71,7 @@ void main() {
     float coverage = checker_fill ^^ flip_fill ? box_coverage_adjacent : box_coverage_center;
     coverage = clamp(flip_fill ? CHECKER_SHRINK - coverage : coverage, 0.0, 1.0);
 
-    vec3 color = mix(COLOR_A, COLOR_B, vec3(coverage));
+    vec3 color = mix(u_lightSquare, u_darkSquare, vec3(coverage));
     gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -193,6 +186,22 @@ const attach = (target: HTMLCanvasElement) => {
         gl.uniform2f(shader.uniforms.u_resolution, width, height);
         gl.uniform1f(shader.uniforms.u_dpi, window.devicePixelRatio);
     };
+
+    const updateColors = (darkMode: boolean) => {
+        if (darkMode) {
+            gl.uniform3f(shader.uniforms.u_darkSquare, 10 / 255, 11 / 255, 18 / 255);
+            gl.uniform3f(shader.uniforms.u_lightSquare, 0.5, 0.05, 0.375);
+        } else {
+            gl.uniform3f(shader.uniforms.u_darkSquare, 0x32 / 255, 0x2d / 255, 0x45 / 255);
+            gl.uniform3f(shader.uniforms.u_lightSquare, 1.0, 0.375, 0.75);
+        }
+    };
+
+    const darkMode = window.matchMedia('(prefers-color-scheme: dark)');
+    darkMode.addEventListener('change', e => {
+        updateColors(e.matches);
+    });
+    updateColors(darkMode.matches);
 
     const landingContainer = document.getElementById('landing-container');
     const onFrame = (timestamp: number) => {
