@@ -1,5 +1,5 @@
 ---
-date: 2025-10-28
+date: 2025-10-31
 title: Adventures in compressing integer sets
 ---
 
